@@ -1,8 +1,11 @@
 # Implementation validation
 
 Validated locally on CPU with Python 3.12, PyTorch 2.9.1, NumPy 2.3.5,
-Transformers 4.57.3 and Torchvision 0.24.1. GPU execution is pending the Colab
-A100 run. The local CUB loader test uses a mocked dataset; it does not download
+Transformers 4.57.3 and Torchvision 0.24.1. The subsequent three-seed Colab A100
+CLIP/CUB run is complete; see [pilot results](CLIP_PILOT_RESULTS.md) and the
+[recorded runtime manifest](../results/clip_cub_pilot_v1/run.json). This does not
+validate the proposed LLM generator, which remains design-only.
+The local CUB loader test uses a mocked dataset; it does not download
 or validate the live remote dataset. Colab pins Datasets 2.21.0 for the SCSS
 dataset loader; the local environment has Datasets 4.8.4.
 

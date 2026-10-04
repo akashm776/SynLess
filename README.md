@@ -1,182 +1,131 @@
 # SynLess
 
-Do SCSS synthetic negatives get selected by influence-based methods, and do those
-selections improve held-out retrieval learning?
+**From influence-selected synthetic negatives to learned generators of internal supervision.**
 
-This repository provides a **Colab A100 pilot**, adapting
-[LESS](https://github.com/princeton-nlp/LESS) and
-[BIDS](https://aclanthology.org/2025.findings-emnlp.373/) to
-[SCSS](https://github.com/akashm776/SCSS)'s contrastive negative constructions.
-It is not a reproduction of either instruction-tuning paper.
+[![CPU science checks](https://github.com/akashm776/SynLess/actions/workflows/tests.yml/badge.svg)](https://github.com/akashm776/SynLess/actions/workflows/tests.yml)
 
-**Status:** implementation and CPU smoke tests are available. Real CLIP/CUB
-results require running the A100 notebook. Toy results are not research evidence.
+[LLM experiment protocol](docs/LLM_GENERATOR_PROTOCOL.md) · [Research roadmap](docs/ROADMAP.md) · [CLIP pilot results](docs/CLIP_PILOT_RESULTS.md) · [Run the CLIP pilot](docs/CLIP_PILOT.md)
 
-[Open the A100 notebook](https://colab.research.google.com/github/akashm776/SynLess/blob/main/colabs/SynLess_A100.ipynb)
+## Research question
 
-## Run on Colab
+Can we learn a reusable function that constructs helpful hidden-state negatives
+for instruction tuning—and demonstrate that it does more than select or reweight
+existing negatives?
 
-Select an **A100** runtime, open the notebook, and run the cells in order. The
-notebook installs the experiment environment, mounts Drive, verifies the runtime,
-and launches the pilot. Use a fresh runtime if Torch was already imported before
-installation. Outputs live under `MyDrive/SynLess/runs/pilot_v1`.
+SynLess began by testing whether [LESS](https://github.com/princeton-nlp/LESS)-style
+influence and [BIDS](https://aclanthology.org/2025.findings-emnlp.373/) select the
+OT/uniform negatives explored in [SCSS](https://github.com/akashm776/SCSS). That
+CLIP/CUB pilot is complete. The next experiment moves to **LLM supervised
+fine-tuning with a learned, layer-specific auxiliary loss**.
 
-Rerun the launch cell after a disconnect. Checkpoints, completed scoring contexts,
-and completed continuation arms are reused. An interrupted arm restarts from its
-parent checkpoint. Configuration/source/package changes require a new output
-folder; they cannot silently mix with an existing run.
+## Two tracks, explicit status
 
-The default is three training seeds, native warmup states at updates 100 and 500,
-four fixed 32-pair training contexts, 384 candidates per seed, 256 selection
-validation images, and a 512-image official-test reporting subset. Each candidate
-context contains OT, uniform-top-8, and hardest-real choices for every query.
-Each continuation uses 20 updates and eight selected candidates per context.
-This is a feasibility pilot, not a full training benchmark.
+| Track | Status | Entry point |
+|---|---|---|
+| CLIP/CUB synthetic-negative selection | Implemented; three-seed A100 pilot recorded | [Method and runnable notebook](docs/CLIP_PILOT.md) |
+| Qwen2.5-1.5B learned-generator pilot | Protocol defined; LLM runner not implemented | [Experiment specification](docs/LLM_GENERATOR_PROTOCOL.md) |
+| Llama-3-8B method replication | Planned after Qwen development and resource gates | [Stage definitions](docs/LLM_GENERATOR_PROTOCOL.md#2-stages-and-model-choices) |
+| Genuine learned OT / multiple layers / diverse capabilities | Follow-up research, not an existing feature | [Roadmap](docs/ROADMAP.md) |
 
-The dataset and pretrained model download automatically. No SCSS clone or private
-checkpoint is needed. This is a fresh experiment with the SCSS construction rules;
-it does not load historical SCSS optimizer states or replay historical schedules.
-Constant learning rates and deterministic fp32 forwards are intentional here.
+The existing CLI, tests, and Colab notebook are **CLIP-only**. No LLM result,
+LLM memory-fit claim, or implementation of a learned generator is being reported.
 
-## Local verification
+## Proposed LLM experiment
+
+1. **Start small:** Qwen2.5-1.5B **base**, LoRA SFT on answer-only GSM8K, one middle
+   decoder block. Qwen is our feasibility choice, not a model used by LESS/BIDS.
+2. **Learn a function:** a small shared scorer chooses barycentric weights over
+   four wrong-answer hidden states. Train its parameters through a differentiable
+   learner update using a disjoint meta-training set.
+3. **Test reuse:** freeze the generator, then train fresh learners on disjoint
+   examples. Compare matched continuations at early/late states and 1/5/20 steps.
+4. **Isolate generation:** compare against native SFT, uniform/fixed mixtures,
+   hardest existing negatives, a global mixture, and equally meta-trained
+   **weighting of existing negative losses**.
+5. **Replicate on Llama:** only after development-set and A100 resource checks.
+   Independently fitting a Llama generator tests the method; reusing the frozen
+   Qwen function is a different, stronger transfer experiment.
+
+The generated object is a **hidden-state mixture**, not new text. The first
+generator is a barycentric-weight function, **not yet a learned OT map**. A
+single math task does not test BIDS's balanced multi-capability claim.
+The [full protocol](docs/LLM_GENERATOR_PROTOCOL.md) specifies splits, losses,
+optimizer state, seed pairing, controls, preflight checks, and failure criteria.
+
+## What the CLIP pilot actually found
+
+Three training seeds; starting states at updates 100/500; twenty matched
+continuation updates; canonical-caption retrieval on a fixed 512-image subset.
+
+| Arm | Mean loss delta at 100 | Mean loss delta at 500 |
+|---|---:|---:|
+| BIDS adaptation | -0.00141933 | -0.000282767 |
+| OT-only | -0.000860157 | -0.000497895 |
+| Uniform-only | -0.000469419 | -0.000178359 |
+| Top LESS-style | -0.0000048702 | +0.00116703 |
+| Bottom LESS-style | +0.000391019 | -0.00158757 |
+
+Deltas are treatment minus matched native continuation; negative is helpful.
+These are selected comparisons, not the complete arm table:
+[all arms and seed variability](results/clip_cub_pilot_v1/REPORT.md),
+[per-seed metrics](results/clip_cub_pilot_v1/summary.json).
+
+Selectors favored synthetic candidates, but selection preference did not
+reliably imply downstream benefit. Early BIDS improvement weakened at the later
+state; top LESS-style selection became harmful on average. OT beat uniform on
+paired loss in all six seed/state comparisons within this setup.
+
+**Limits:** three seeds, tiny retrieval changes, CUB's prior use in the broader
+SCSS research context, and different attribution subspaces
+for full-space LESS versus head-space BIDS. These results do not establish
+full-dataset retrieval gains, a general BIDS-vs-LESS ranking, or transfer to LLMs.
+Read the [interpretation and caveats](docs/CLIP_PILOT_RESULTS.md).
+
+## Run the existing CLIP experiment
+
+[Open CLIP/CUB Colab A100 notebook](https://colab.research.google.com/github/akashm776/SynLess/blob/main/colabs/SynLess_A100.ipynb)
+
+Choose an A100 runtime and follow the notebook. It saves resumable outputs to
+Drive. To replay the published pilot, use the recorded source revision in the
+[result provenance](results/clip_cub_pilot_v1/README.md); code/config changes
+must not be mixed into an existing run directory.
+
+For CPU implementation checks, from the repository root:
 
 ```bash
 python -m pip install -e '.[test]'
 python -m pytest -q
+python scripts/check_research_docs.py
 synless run --config configs/smoke.json --output runs/smoke
-synless summarize --output runs/smoke
 ```
 
-The smoke run exercises all selectors, multiple model states, matched training,
-reporting, and resume. A tiny random CLIP adapter test runs when Transformers is
-installed, without downloading pretrained weights.
+Toy output is not scientific evidence. Full setup, selector definitions,
+artifacts, and resume rules are in the [CLIP guide](docs/CLIP_PILOT.md).
+See [validation notes](docs/VALIDATION.md) for the local test environment.
 
-## What is selected?
+## Repository map
 
-A candidate is `(fixed context, query, source images, mixing coefficients)`, not a
-detached embedding. At the first scoring checkpoint we save support and weights,
-then hold that recipe fixed across subsequent states. Images and text are
-re-encoded live, and gradients flow through every source image. Thus this tests
-the same candidate recipes at different model states, not a freshly recomputed
-top-k/OT plan at each state. The hardest-real identity is also frozen.
-
-`ot` and `uniform` use identical top-k support and exclude the matched image. OT
-reproduces SCSS's `historical_sparse_ot` solver, including its dense numerical
-floor and final support mask. Uniform means equal weights on the same support,
-not a random negative. `hardest_real` adds another denominator contribution for
-an existing real negative, matching the SCSS comparator.
-
-Each candidate uses the relative-denominator auxiliary loss:
-
-```
-softplus(synthetic_logit - logsumexp(native_row_logits))
+```text
+docs/
+  LLM_GENERATOR_PROTOCOL.md   New LLM study: design, not executable code
+  ROADMAP.md                 Implementation gates and deferred hypotheses
+  CLIP_PILOT.md              Existing CLIP workflow and methodology
+  CLIP_PILOT_RESULTS.md      Interpretation of the completed pilot
+  VALIDATION.md              Implementation-check coverage
+results/clip_cub_pilot_v1/    Lightweight recorded results; no model weights
+synless/                    Existing CLIP construction, scoring, training, reporting
+colabs/SynLess_A100.ipynb    Existing CLIP-only A100 entry point
+configs/                    Executable CLIP and toy configurations
+tests/                      Existing implementation checks
 ```
 
-The auxiliary uses a detached CLIP scale; the native symmetric loss still trains
-the scale. Multiple chosen candidates for one query contribute separate auxiliary
-losses, averaged over the selected budget. They do not form one jointly expanded
-denominator. Scoring a single candidate uses `alpha / selected_per_batch`, its
-coefficient in that average. Candidate interactions can therefore invalidate
-individual rankings; actual continuation experiments are essential.
+## Research lineage
 
-To replay an exported bank, add `"candidate_banks": {"789": "/path/candidates.json"}`
-to a copied configuration. Its contexts must match the run exactly. The bank
-format includes query IDs, source IDs, support indices, weights, and a context
-hash; see a smoke run's `seed_1/candidates.json`. Importing old detached embedding
-tensors cannot recover their original training gradients.
+- [SCSS](https://github.com/akashm776/SCSS): OT barycentric and uniform contrastive negatives.
+- [LESS](https://arxiv.org/html/2402.04333v2): influential instruction-data selection;
+  Llama-2-7B/13B and Mistral-7B.
+- [BIDS](https://aclanthology.org/2025.findings-emnlp.373/): normalized, iterative
+  influence selection for balanced capabilities; Llama-3-8B and Mistral-7B-v0.3.
 
-## Scores and selectors
-
-| Name | Meaning |
-|---|---|
-| `raw_aux_cosine` | Exact auxiliary gradient vs mean selection-validation gradient |
-| `less_aux_cosine` | Released LESS Adam feature for the weighted auxiliary vs validation gradient |
-| `less_total_cosine` | The same feature for native + candidate loss |
-| `marginal_predicted_gain` | `-g_val · (delta_native+candidate - delta_native)`, with actual AdamW rules |
-| `head_influence` | Candidate-by-validation-instance cosine matrix in the two projection heads |
-
-`less_aux_cosine` matches the released feature convention
-`(.9*m + .1*g) / sqrt(.999*v + .001*g² + 1e-8)`. It omits bias correction,
-clipping, learning rates, and decay, as in that feature extractor. The marginal
-score includes group-specific learning rates, bias correction, clipping, decay,
-and scale clamping. Stored moments and the model are never modified by scoring.
-All parameters share a fixed layout; absent auxiliary derivatives are zero-filled.
-
-Exact full-trainable-space scores use both projections, final vision/text blocks,
-and logit scale. The BIDS matrix uses **both projection heads only** to avoid
-storing hundreds of full-model gradients. All `less_head_*` and BIDS selectors
-share that identical matrix, without random projection. This is an explicit
-parameter-subspace approximation to full-model influence, not LoRA LESS.
-
-Continuation arms include native-only, top/bottom full-space LESS, top marginal
-gain, random selections, construction-only controls, and these matrix selectors:
-
-- `less_head_mean`: mean influence across validation instances.
-- `less_head_task_max`: mean within each retrieval direction, then maximum across directions.
-- `bids`: column normalization followed by greedy selection against the selected mean.
-- `bids_no_normalization`: greedy selection without normalization.
-- `normalized_instance_max`: normalization without iterative balancing.
-
-All auxiliary arms have the same batch order, number of updates, coefficient,
-candidate count, and exposure count. Each training context gets the same budget.
-For BIDS this introduces a **context-capacity constraint**, an adaptation beyond
-the paper. Unconstrained BIDS and LESS task-max selections are also saved, so
-the original selection comparison can be inspected separately from the matched
-training experiment. No quota forces equal OT/uniform/real selection.
-
-## BIDS interpretation
-
-BIDS normalizes each validation-instance column across training candidates and
-iteratively chooses the candidate maximizing its largest improvement over the
-selected set's average influence profile. It addresses imbalance that raw
-cross-task influence comparisons can create. See [paper §4 and Algorithm 1](https://aclanthology.org/2025.findings-emnlp.373.pdf).
-
-We use a zero reference for the initially empty set (unspecified in Algorithm 1),
-sample standard deviation, and discard constant columns. Ties use stable input
-order. Validation columns are individual image-query losses in both retrieval
-directions. These are two objectives within CUB, not the paper's five diverse
-language capabilities. BIDS does not guarantee positive absolute influence:
-normalization is relative, and a fixed budget can select harmful candidates.
-This is why we retain the native-only and actual-utility controls.
-
-## Reading results
-
-`REPORT.md` and `summary.json` contain seed-level matched reporting-loss and R@1
-deltas. Negative loss delta is helpful. R@1 deltas are fractions, not percentage
-points. Reported loss averages fixed within-batch native losses; R@1 uses the full
-recorded reporting pool and one canonical caption per image.
-
-For each seed/state:
-
-- `selection_summary.json`: generator selection counts, pool-adjusted enrichment, score distributions.
-- `scores_batch_*.json`: individual scores and attribution matrix rows.
-- `validation_columns.json`: exact attribution column identities and retrieval direction.
-- `bids_diagnostics.json`: influence distributions, task-dominance counts, unconstrained selections.
-- `trajectory_scores.json`: LR-weighted accumulation across checkpoints **up to this state**.
-- `selections.json`: chosen candidate IDs, fixed before reporting outcomes are read.
-- `continuation_*.json`: matched branch results and exposure counts.
-
-Trajectory scores are diagnostic; the first pilot's training selectors use the
-current state. Gradient features change with training, and combining early and
-later scores can obscure sign reversals. Scoring checkpoints use a constant
-schedule; the scalar trajectory weight is the projection learning rate, not a
-claim that all parameter groups have the same learning rate.
-
-Selection validation is held out from the new training split at the image level.
-The reporting subset is drawn from the official test split and never used for
-selection. Prior SCSS work has evaluated CUB, so we do not call this dataset
-historically untouched. Random repeats are not additional training seeds. A
-selection preference, a short-horizon loss improvement, and a retrieval gain are
-different outcomes and must be reported separately.
-
-## Provenance
-
-- SCSS construction reference: commit `40153cff55d050139f97d75713822631e1343d1d`,
-  `model/clip_training.py` and `src/clip_geometry_v2_metrics.py`.
-- [LESS paper](https://arxiv.org/abs/2402.04333) and
-  [released Adam feature](https://github.com/princeton-nlp/LESS/blob/main/less/data_selection/collect_grad_reps.py).
-- Dai et al. (2025), [Improving Influence-based Instruction Tuning Data Selection for Balanced Learning of Diverse Capabilities](https://aclanthology.org/2025.findings-emnlp.373/).
-
-Run manifests record source hashes, dependency versions, dataset fingerprints,
-actual image/caption splits, and resolved pretrained-model revision. Do not run
-two processes against the same output directory.
+SynLess's CLIP implementation adapts these selection ideas. The proposed learned
+LLM generator is a new hypothesis; neither paper establishes its effectiveness.

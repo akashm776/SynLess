@@ -1,0 +1,51 @@
+{
+  "identity": {
+    "config": {
+      "backend": "cub",
+      "model": "openai/clip-vit-base-patch32",
+      "dataset": "alkzar90/CC6204-Hackaton-Cub-Dataset",
+      "data_seed": 20261003,
+      "seeds": [
+        789,
+        2026,
+        31415
+      ],
+      "checkpoints": [
+        100,
+        500
+      ],
+      "batch_size": 32,
+      "candidate_batches": 4,
+      "validation_size": 256,
+      "test_size": 512,
+      "top_k": 8,
+      "epsilon": 0.049,
+      "iterations": 30,
+      "selected_per_batch": 8,
+      "continuation_steps": 20,
+      "random_repeats": 3,
+      "alpha": 0.06,
+      "projection_lr": 1e-05,
+      "encoder_lr": 1e-06,
+      "scale_lr": 1e-06,
+      "weight_decay": 0.01,
+      "max_grad_norm": 1.0,
+      "device": "cuda",
+      "require_a100": true
+    },
+    "code_sha256": "d14747413bb3b12287a2663e60a5bdc0e19f0a75387dc817eaee5efdc9e9481a",
+    "versions": {
+      "torch": "2.9.1+cu128",
+      "numpy": "2.3.5",
+      "transformers": "4.57.3",
+      "datasets": "2.21.0"
+    },
+    "imported_bank_sha256": {}
+  },
+  "python": "3.13.15",
+  "device": "NVIDIA A100-SXM4-40GB",
+  "precision": "float32; TF32 disabled",
+  "candidate_policy": "frozen support and coefficients, live embeddings",
+  "status": "complete",
+  "research_evidence": true
+}
