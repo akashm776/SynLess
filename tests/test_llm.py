@@ -208,9 +208,23 @@ def test_full_smoke_resume_and_test_gate(config,tmp_path,pause_at):
         execute("report",config,resumed)
 
 
-def test_actual_barycenter_meta_gradient_fp64(config):
+def test_actual_barycenter_meta_gradient_fp64(config, monkeypatch):
     pytest.importorskip("transformers")
+    from transformers.models.qwen2.modeling_qwen2 import Qwen2RMSNorm
     from synless.llm.model import update, meta_objective
+    # Qwen explicitly downcasts RMSNorm and attention softmax to fp32 even
+    # after model.double(). Use their mathematically identical fp64 reference
+    # here; otherwise finite differences measure float32 rounding noise. This
+    # fixture-local patch never changes production or mixed-precision tests.
+    def reference_norm(self, hidden):
+        return self.weight * hidden * torch.rsqrt(hidden.square().mean(-1, keepdim=True) + self.variance_epsilon)
+    original_softmax = F.softmax
+    def reference_softmax(input, dim=None, _stacklevel=3, dtype=None):
+        if input.dtype == torch.float64:
+            dtype = torch.float64
+        return original_softmax(input, dim=dim, _stacklevel=_stacklevel, dtype=dtype)
+    monkeypatch.setattr(Qwen2RMSNorm, "forward", reference_norm)
+    monkeypatch.setattr(F, "softmax", reference_softmax)
     learner,opt,parts = tiny_setup(config)
     learner.double()
     for _ in range(2):

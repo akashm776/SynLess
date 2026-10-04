@@ -57,8 +57,11 @@ permutation behavior, live constituent gradients, and matched control identities
 Functional AdamW is compared to real PyTorch steps with warm moments, distinct
 learning rates, clipping, decay, and unused parameters. An fp64 mixed derivative
 is checked with central finite differences, including a zero-moment edge case.
-The actual tiny-transformer barycenter meta-gradient also matches an fp64
-finite-difference check. A frozen-bf16-base/fp32-adapter CPU test verifies finite
+The tiny-transformer barycenter meta-gradient also matches a true-fp64 reference
+finite-difference check. Qwen's RMSNorm and attention softmax explicitly downcast
+to fp32 even after `.double()`; the test substitutes mathematically equivalent
+fp64 operations only inside that fixture to avoid rounding-noise comparisons.
+The production model is unchanged. A frozen-bf16-base/fp32-adapter CPU test verifies finite
 meta-gradient connectivity in mixed precision; it is not an A100 resource test.
 
 A tiny randomly initialized Qwen2 decoder verifies raw-layer capture, agreement
