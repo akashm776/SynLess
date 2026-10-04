@@ -1,0 +1,23 @@
+{
+  "backend": "tiny",
+  "model": "offline-tiny-qwen2",
+  "device": "cpu",
+  "require_a100": false,
+  "layer": 1,
+  "rank": 2,
+  "lora_alpha": 4,
+  "lr": 0.003,
+  "outer_lr": 0.003,
+  "alpha": 0.05,
+  "max_length": 128,
+  "max_new_tokens": 3,
+  "batch_size": 2,
+  "meta_batch_size": 1,
+  "outer_batch_size": 1,
+  "states": [2, 3],
+  "horizons": [1, 2],
+  "meta_episodes": 2,
+  "seed_triples": [[101, 11, 789]],
+  "checkpoint_interval": 1,
+  "min_memory_headroom_gb": 0
+}

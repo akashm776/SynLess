@@ -1,0 +1,8 @@
+{
+  "backend": "hf",
+  "model": "Qwen/Qwen2.5-1.5B",
+  "device": "cuda",
+  "require_a100": true,
+  "layer": 14,
+  "seed_triples": [[101, 11, 789], [102, 22, 2026], [103, 33, 31415]]
+}

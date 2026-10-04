@@ -4,7 +4,7 @@
 
 [![CPU science checks](https://github.com/akashm776/SynLess/actions/workflows/tests.yml/badge.svg)](https://github.com/akashm776/SynLess/actions/workflows/tests.yml)
 
-[LLM experiment protocol](docs/LLM_GENERATOR_PROTOCOL.md) · [Research roadmap](docs/ROADMAP.md) · [CLIP pilot results](docs/CLIP_PILOT_RESULTS.md) · [Run the CLIP pilot](docs/CLIP_PILOT.md)
+[Run the LLM pilot](docs/LLM_RUN.md) · [LLM protocol](docs/LLM_GENERATOR_PROTOCOL.md) · [Research roadmap](docs/ROADMAP.md) · [CLIP pilot results](docs/CLIP_PILOT_RESULTS.md)
 
 ## Research question
 
@@ -23,14 +23,15 @@ fine-tuning with a learned, layer-specific auxiliary loss**.
 | Track | Status | Entry point |
 |---|---|---|
 | CLIP/CUB synthetic-negative selection | Implemented; three-seed A100 pilot recorded | [Method and runnable notebook](docs/CLIP_PILOT.md) |
-| Qwen2.5-1.5B learned-generator pilot | Protocol defined; LLM runner not implemented | [Experiment specification](docs/LLM_GENERATOR_PROTOCOL.md) |
+| Qwen2.5-1.5B learned-generator pilot | Implemented; offline tiny-model checks pass; real A100 run pending | [LLM run guide](docs/LLM_RUN.md) |
 | Llama-3-8B method replication | Planned after Qwen development and resource gates | [Stage definitions](docs/LLM_GENERATOR_PROTOCOL.md#2-stages-and-model-choices) |
 | Genuine learned OT / multiple layers / diverse capabilities | Follow-up research, not an existing feature | [Roadmap](docs/ROADMAP.md) |
 
-The existing CLI, tests, and Colab notebook are **CLIP-only**. No LLM result,
-LLM memory-fit claim, or implementation of a learned generator is being reported.
+The new `synless-llm` runner and `SynLess_LLM_A100.ipynb` are separate from the
+original CLIP workflow. All seven generator/control arms are implemented.
+**No real-model LLM gain or A100 memory fit has yet been established.**
 
-## Proposed LLM experiment
+## LLM experiment
 
 1. **Start small:** Qwen2.5-1.5B **base**, LoRA SFT on answer-only GSM8K, one middle
    decoder block. Qwen is our feasibility choice, not a model used by LESS/BIDS.
@@ -51,6 +52,14 @@ generator is a barycentric-weight function, **not yet a learned OT map**. A
 single math task does not test BIDS's balanced multi-capability claim.
 The [full protocol](docs/LLM_GENERATOR_PROTOCOL.md) specifies splits, losses,
 optimizer state, seed pairing, controls, preflight checks, and failure criteria.
+
+[Open the LLM A100 notebook](https://colab.research.google.com/github/akashm776/SynLess/blob/main/colabs/SynLess_LLM_A100.ipynb)
+
+Run **preflight → development training → official-test report** in separate
+cells. The preflight verifies live meta-gradients and measures resources on your
+A100; training refuses to start without a matching successful check. Official
+test reporting requires a locked development comparator and unchanged checkpoint
+hashes. See the [run guide](docs/LLM_RUN.md) for resume rules and compute limits.
 
 ## What the CLIP pilot actually found
 
@@ -107,16 +116,19 @@ See [validation notes](docs/VALIDATION.md) for the local test environment.
 
 ```text
 docs/
-  LLM_GENERATOR_PROTOCOL.md   New LLM study: design, not executable code
+  LLM_GENERATOR_PROTOCOL.md   Scientific specification and boundaries
+  LLM_RUN.md                  LLM setup, commands, resume, and resource checks
   ROADMAP.md                 Implementation gates and deferred hypotheses
   CLIP_PILOT.md              Existing CLIP workflow and methodology
   CLIP_PILOT_RESULTS.md      Interpretation of the completed pilot
   VALIDATION.md              Implementation-check coverage
 results/clip_cub_pilot_v1/    Lightweight recorded results; no model weights
-synless/                    Existing CLIP construction, scoring, training, reporting
+synless/                    CLIP construction, scoring, training, reporting
+synless/llm/                Separate LLM data, LoRA, generators, meta-learning, reporting
 colabs/SynLess_A100.ipynb    Existing CLIP-only A100 entry point
-configs/                    Executable CLIP and toy configurations
-tests/                      Existing implementation checks
+colabs/SynLess_LLM_A100.ipynb New LLM A100 entry point
+configs/                    Separate CLIP, Qwen, and offline smoke configurations
+tests/                      CLIP and LLM implementation checks
 ```
 
 ## Research lineage
@@ -127,5 +139,5 @@ tests/                      Existing implementation checks
 - [BIDS](https://aclanthology.org/2025.findings-emnlp.373/): normalized, iterative
   influence selection for balanced capabilities; Llama-3-8B and Mistral-7B-v0.3.
 
-SynLess's CLIP implementation adapts these selection ideas. The proposed learned
+SynLess's CLIP implementation adapts these selection ideas. The learned
 LLM generator is a new hypothesis; neither paper establishes its effectiveness.

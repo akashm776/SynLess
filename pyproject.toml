@@ -4,17 +4,19 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "synless"
-version = "0.1.0"
-description = "LESS-style selection of contextual synthetic contrastive negatives"
+version = "0.2.0"
+description = "Influence-selected negatives and meta-learned LLM internal supervision"
 requires-python = ">=3.10"
 dependencies = ["torch>=2.5", "numpy>=1.26"]
 
 [project.optional-dependencies]
 clip = ["transformers==4.57.3", "datasets==2.21.0", "Pillow>=10", "torchvision>=0.20"]
+llm = ["transformers==4.57.3", "datasets==2.21.0", "accelerate>=1.2,<2"]
 test = ["pytest>=8"]
 
 [project.scripts]
 synless = "synless.cli:main"
+synless-llm = "synless.llm.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["synless*"]

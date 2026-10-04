@@ -3,7 +3,7 @@
 [Project overview](../README.md) · [LLM protocol](LLM_GENERATOR_PROTOCOL.md)
 
 This roadmap separates completed work from proposed experiments. Unchecked items
-are not available features. All existing executable configurations remain CLIP/toy.
+are not available features. CLIP and LLM workflows use separate configurations.
 
 ## Completed foundation: CLIP/CUB
 
@@ -19,13 +19,13 @@ effects depend on the learner state. It does not validate the new LLM method.
 ## Stage 0: implement and validate the LLM path
 
 - [x] Define the research question, model progression, controls, and reporting rules.
-- [ ] Add a separate LLM package/CLI and notebook; preserve CLIP entry points.
-- [ ] Implement GSM8K partition manifests, numeric distractor audits, token masks,
+- [x] Add a separate LLM package/CLI and notebook; preserve CLIP entry points.
+- [x] Implement GSM8K partition manifests, numeric distractor audits, token masks,
       and strict answer-only evaluation.
-- [ ] Implement layer hooks, permutation-equivariant scoring, and all seven arms.
-- [ ] Implement functional AdamW and one-step outer differentiation; test against
+- [x] Implement layer hooks, permutation-equivariant scoring, and all seven arms.
+- [x] Implement functional AdamW and one-step outer differentiation; test against
       real optimizer updates and finite differences on a tiny fp64 model.
-- [ ] Verify fresh-learner forks and exact resume of generator/learner state.
+- [x] Verify fresh-learner forks and exact resume of generator/learner state on the tiny offline model.
 - [ ] Measure actual Qwen A100 memory, throughput, and gradient behavior.
 - [ ] Freeze executable protocol, revisions, and resource-approved settings.
 

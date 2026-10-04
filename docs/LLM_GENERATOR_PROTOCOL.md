@@ -1,9 +1,19 @@
-# Learned layer-wise negative generators: experiment protocol v0.1
+# Learned layer-wise negative generators: experiment protocol v0.2
 
-Status: design only. No LLM training, GPU-memory validation, or new experimental
-result is implied by this document. The existing CLIP runner does not implement
-this protocol. Final run manifests must lock revisions and numerical settings
-after the correctness/memory preflight, before examining reporting outcomes.
+Status: a separate LLM runner implements the Qwen pilot and all seven arms;
+offline tiny-model correctness and resume tests are available. Real Qwen/GSM8K
+training, GPU-memory validation, and utility results remain pending the A100 run.
+See the [run guide](LLM_RUN.md). The original CLIP runner remains unchanged.
+Run manifests lock revisions and numerical settings; changes after preflight
+require a new output directory, before examining reporting outcomes.
+
+Implementation clarifications in v0.2: SFT completion loss includes the leading
+space and EOS; numeric-token metrics/pooling exclude standalone whitespace and
+EOS. Token-cap-truncated decoding counts as incorrect. Correct-answer eligibility
+precedes partition allocation; additional wrong-answer eligibility applies only
+to A/B. The development accuracy gate requires nonnegative pooled exact-match
+differences and no majority-seed harm versus both native and learned-loss controls.
+These refinements were made before any real-model pilot outcome was observed.
 
 ## 1. Question and scope
 
@@ -139,7 +149,7 @@ live in the auxiliary loss, so the learner gets representation gradients. During
 meta-training retain dependence on phi through the weights and differentiable
 learner update. At evaluation freeze phi; weights still adapt to each new
 example/state, but their feature path does not differentiate into the learner.
-No learned loss-strength gate or separate trainable projection head in v0.1.
+No learned loss-strength gate or separate trainable projection head in v0.2.
 
 This is a learned **barycentric-weight function**, not yet an OT map. Calling it
 OT would require an explicit transport problem with source/target measures,
@@ -244,7 +254,7 @@ controls, bottom-score controls, and actual native-matched continuations. Test
 both frozen-mixture recipes and a dynamic frozen-generator policy separately:
 rescoring one object and training another obscures what a ranking predicts.
 
-This follow-up is not activated by v0.1. Before activating it, amend the split
+This follow-up is not activated by v0.2. Before activating it, amend the split
 allocation and selection budgets. To study BIDS's balanced-capability claim,
 also specify multiple genuinely different tasks, their validation weights and
 per-task reporting metrics. Generator categories or layers are not capabilities.
@@ -323,7 +333,7 @@ the model's terms. Use a secret store, never a notebook literal or committed
 token. If the real differentiable 8B update does not fit, report that limitation
 and revise the protocol explicitly; do not call a changed estimator the same run.
 
-Planned output contract: `protocol.json`, `manifest.json`, `splits.json`,
+Implemented output contract: `protocol.json`, `manifest.json`, `splits.json`,
 `candidate_audit.json`, `preflight.json`, per-replication teacher/generator/learner
 checkpoints, matched branch metrics, `summary.json`, and `REPORT.md`. Separate
 output roots from CLIP; no CLIP checkpoint or metric file is overwritten.

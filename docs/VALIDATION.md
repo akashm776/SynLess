@@ -4,7 +4,7 @@ Validated locally on CPU with Python 3.12, PyTorch 2.9.1, NumPy 2.3.5,
 Transformers 4.57.3 and Torchvision 0.24.1. The subsequent three-seed Colab A100
 CLIP/CUB run is complete; see [pilot results](CLIP_PILOT_RESULTS.md) and the
 [recorded runtime manifest](../results/clip_cub_pilot_v1/run.json). This does not
-validate the proposed LLM generator, which remains design-only.
+validate the new LLM generator's real-model performance or GPU memory fit.
 The local CUB loader test uses a mocked dataset; it does not download
 or validate the live remote dataset. Colab pins Datasets 2.21.0 for the SCSS
 dataset loader; the local environment has Datasets 4.8.4.
@@ -42,3 +42,34 @@ The local Python installation's native `readline` extension crashes during pytes
 startup. Tests were run with plugin autoload disabled and `readline` marked
 unavailable in the test process; Torch and the tests themselves were unchanged.
 The standard pytest command is retained for Linux CI and Colab.
+
+## LLM implementation checks
+
+Local verification after the LLM addition: **30 tests passed**, including 11
+LLM tests. A separate complete offline smoke run exercised all seven arms, two
+starting states, and two reporting horizons (28 paired reporting records), plus
+development locking and report generation. Both Colab notebooks pass JSON and
+Python-cell syntax checks. These are not real-model experimental results.
+
+`tests/test_llm.py` independently checks numeric parsing, distractors, disjoint
+partitions, boundary-safe token masks, deterministic data order, generator
+permutation behavior, live constituent gradients, and matched control identities.
+Functional AdamW is compared to real PyTorch steps with warm moments, distinct
+learning rates, clipping, decay, and unused parameters. An fp64 mixed derivative
+is checked with central finite differences, including a zero-moment edge case.
+The actual tiny-transformer barycenter meta-gradient also matches an fp64
+finite-difference check. A frozen-bf16-base/fp32-adapter CPU test verifies finite
+meta-gradient connectivity in mixed precision; it is not an A100 resource test.
+
+A tiny randomly initialized Qwen2 decoder verifies raw-layer capture, agreement
+with full-logit masked CE, generator meta-gradient connectivity, non-mutating
+virtual steps, exact learner restore, interrupted pipeline resume, and the
+development-before-test gate. This fixture downloads no weights or dataset.
+Resume coverage includes interruptions inside meta-training and continuation
+training. Shared parent optimizer tensors must remain unchanged across restores;
+loading optimizer states takes a deep copy to prevent same-device tensor aliasing.
+It cannot demonstrate Qwen2.5-1.5B/GSM8K gains or A100 feasibility.
+
+The [LLM notebook](../colabs/SynLess_LLM_A100.ipynb) invokes the separate
+real-runtime preflight before permitting substantive training. See
+[run instructions](LLM_RUN.md) for resource checks and limitations.
