@@ -17,7 +17,7 @@ import torch
 
 from .core import ARMS, LEARNED, Generator, finite_gradients, functional_adamw
 from .data import build_records, digest, scheduled_batch
-from .model import load_tokenizer, load_learner, make_optimizer, objective, update, meta_objective, evaluate
+from .model import load_tokenizer, load_learner, make_optimizer, objective, update, meta_objective, evaluate, check_prompt_causality
 
 
 DEFAULTS = {
@@ -249,6 +249,7 @@ def preflight(config, output, tokenizer, partitions, manifest):
     for _ in range(2):
         update(learner, optimizer, inner, tokenizer, config)
     state = snapshot(learner, optimizer)
+    causality = check_prompt_causality(learner, batch, tokenizer)
     stats = {}
     for arm in ("native", "uniform_barycenter"):
         restore(learner, optimizer, state)
@@ -303,6 +304,7 @@ def preflight(config, output, tokenizer, partitions, manifest):
               "data_sha256": manifest["data_sha256"], "measurements": stats, "meta_gradient_norms": meta_norms,
               "weighted_aux_to_native_gradient_ratio": aux_norm/max(native_norm, 1e-30),
               "per_layer_gradient_diagnostics": layer_norms,
+              "same_shape_prompt_causality": causality,
               "total_memory_gb": total_memory, "remaining_headroom_gb": None if total_memory is None else total_memory-peak,
               "test_evaluated": False, "longest_training_tokens": max(len(r["correct"]["input_ids"]) for r in longest),
               "limitations": "Resource check only; utility untested. bf16 virtual forward can round small fp32 adapter updates."}

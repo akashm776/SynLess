@@ -75,6 +75,21 @@ mixture is a hidden vector, not decoded text or an OT solution.
 
 ## Resume and integrity
 
+### Fix for the initial bf16 prompt-state preflight failure
+
+The original cross-batch assertion could fail with
+`Prompt states changed across teacher-forced answers`: it compared B correct
+sequences with 4B wrong sequences, which have different batch/padding shapes.
+That is not a controlled test for future-token leakage. The updated code keeps
+exact token-prefix/position validation and adds a same-shape suffix-perturbation
+causality test for both layouts. The correct-pass query and training losses are
+unchanged. Cross-batch maximum absolute and relative-L2 differences are recorded.
+This follows PyTorch's [numerical-accuracy caveat about batched computations](https://docs.pytorch.org/docs/2.9/notes/numerical_accuracy.html#batched-computations-or-slice-computations).
+
+After updating from the failing version, use a **new output directory** (for
+example `llm_qwen_v2`) and rerun preflight. Do not edit the old manifest or bypass
+its source-hash lock. Keep the failed output for diagnosis; no deletion is needed.
+
 Rerun the same command in the same output directory. Completed native states,
 meta episodes at the last checkpoint, branches, and evaluations are reused.
 An interrupted unsaved interval is replayed; saved metric histories are restored

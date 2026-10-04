@@ -125,6 +125,49 @@ def make_optimizer(learner, config):
         betas=(.9, .999), eps=1e-8, weight_decay=config["weight_decay"], foreach=False)
 
 
+def validate_prompt_prefixes(rows):
+    """Enforce token/position identity, not cross-batch floating-point identity."""
+    for row in rows:
+        correct = row["correct"]
+        end = correct["prompt_end"]
+        prefix = correct["input_ids"][:end+1]
+        if end < 0 or prefix != correct["prompt_ids"] or len(row["negatives"]) != 4:
+            raise ValueError("Invalid correct prompt prefix or negative count")
+        for wrong in row["negatives"]:
+            if (wrong["prompt_end"] != end or wrong["prompt_ids"] != prefix
+                    or wrong["input_ids"][:end+1] != prefix):
+                raise ValueError("Correct and wrong answers do not share identical prompt tokens/positions")
+
+
+@torch.no_grad()
+def check_prompt_causality(learner, rows, tokenizer):
+    """Change only future tokens, keeping shapes/masks/positions identical.
+
+    Comparing B correct rows with 4B wrong rows is not a causality test: bf16
+    kernels may produce different rounding for different matrix/padding shapes.
+    Check each of those layouts against its own suffix-perturbed copy instead.
+    """
+    validate_prompt_prefixes(rows)
+    device = next(learner.parameters()).device
+    diagnostics = {}
+    for name, encodings in (("correct", [r["correct"] for r in rows]),
+                            ("wrong", [n for r in rows for n in r["negatives"]])):
+        batch = collate(encodings, tokenizer.pad_token_id, device)
+        original = learner(batch, need_loss=False)["q"]
+        changed = {k: v.clone() for k, v in batch.items()}
+        positions = torch.arange(batch["input_ids"].shape[1], device=device)[None]
+        future = (positions > batch["prompt_end"][:, None]) & batch["attention_mask"].bool()
+        changed["input_ids"][future] = (changed["input_ids"][future] + 1) % learner.backbone.config.vocab_size
+        perturbed = learner(changed, need_loss=False)["q"]
+        if not torch.isfinite(original).all() or not torch.isfinite(perturbed).all():
+            raise FloatingPointError("Nonfinite prompt states in same-shape causality check")
+        max_abs = float((original-perturbed).abs().max())
+        diagnostics[name] = {"batch_shape": list(batch["input_ids"].shape), "max_abs_difference": max_abs}
+        if not torch.equal(original, perturbed):
+            raise RuntimeError(f"Prompt depends on future answer tokens in same-shape {name} check (max_abs={max_abs:g})")
+    return diagnostics
+
+
 def objective(learner, rows, tokenizer, config, arm="native", generator=None, parameters=None):
     device = next(learner.parameters()).device
     def forward(batch, need_loss=True):
@@ -138,12 +181,20 @@ def objective(learner, rows, tokenizer, config, arm="native", generator=None, pa
                    "forward_tokens": int(batch["attention_mask"].sum())}
     if arm == "native" or config["alpha"] == 0:
         return native, diagnostics
+    validate_prompt_prefixes(rows)
     wrong_batch = collate([n for row in rows for n in row["negatives"]], tokenizer.pad_token_id, device)
     wrong = forward(wrong_batch, need_loss=False)
-    # Compare the actual causal states, not just token prefixes.
+    # The positive-pass q is the shared live query used by every construction.
+    # Cross-layout bf16 differences are diagnostic, not evidence of future-token
+    # leakage. Preflight tests causality with fixed-shape suffix perturbations.
     expected = output["q"][:, None].expand(-1, 4, -1).reshape_as(wrong["q"])
-    if not torch.allclose(expected.detach(), wrong["q"].detach(), rtol=2e-2, atol=2e-3):
-        raise RuntimeError("Prompt states changed across teacher-forced answers")
+    with torch.no_grad():
+        if not torch.isfinite(expected).all() or not torch.isfinite(wrong["q"]).all():
+            raise FloatingPointError("Nonfinite prompt representations")
+        diff = expected.detach() - wrong["q"].detach()
+        diagnostics["cross_batch_prompt_max_abs"] = float(diff.abs().max())
+        diagnostics["cross_batch_prompt_max_relative_l2"] = float(
+            (diff.norm(dim=-1) / expected.detach().norm(dim=-1).clamp_min(1e-8)).max())
     aux, stats, _ = auxiliary(output["q"], output["p"], wrong["p"].reshape(len(rows), 4, -1),
                                arm, generator, config["tau"])
     diagnostics.update(stats)

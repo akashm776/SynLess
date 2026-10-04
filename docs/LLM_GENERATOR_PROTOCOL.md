@@ -117,8 +117,12 @@ For a prompt x and layer l, re-encode current learner states on every update:
 - n_lj: mean hidden state over wrong answer j's tokens, excluding EOS and padding.
 
 All answer states are obtained by teacher-forced forward passes on their own
-prompt + answer sequence. The causal prompt state must agree across these
-sequences with dropout disabled. Normalize q, p, and each n separately in fp32
+prompt + answer sequence. The causal prompt state is mathematically independent
+of the answer suffix. Preflight verifies this by changing future tokens while
+holding batch shape, masks, and positions fixed. Different correct/wrong batch
+layouts can exhibit bf16 rounding drift; their differences are logged, not used
+as a leakage assertion. Every arm uses the correct-pass q as its shared live
+query. Normalize q, p, and each n separately in fp32
 with a fixed epsilon before taking similarities or mixing.
 
 Use a shared candidate scorer, not an order-sensitive vector of four logits:

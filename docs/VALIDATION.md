@@ -45,7 +45,7 @@ The standard pytest command is retained for Linux CI and Colab.
 
 ## LLM implementation checks
 
-Local verification after the LLM addition: **30 tests passed**, including 11
+Local verification after the prompt-causality fix: **33 tests passed**, including 14
 LLM tests. A separate complete offline smoke run exercised all seven arms, two
 starting states, and two reporting horizons (28 paired reporting records), plus
 development locking and report generation. Both Colab notebooks pass JSON and
@@ -72,6 +72,14 @@ Resume coverage includes interruptions inside meta-training and continuation
 training. Shared parent optimizer tensors must remain unchanged across restores;
 loading optimizer states takes a deep copy to prevent same-device tensor aliasing.
 It cannot demonstrate Qwen2.5-1.5B/GSM8K gains or A100 feasibility.
+
+Prompt-causality regression tests cover both fp32 and bf16 frozen bases,
+same-shape future-token perturbations, detection of deliberately injected answer
+leakage, rejection of mismatched prompt tokens, and harmless cross-batch query
+drift that must not change the auxiliary loss. The A100 user-reported failure
+was in the original cross-layout assertion, not a TensorFlow import or the
+`torch_dtype` deprecation warning. Its real-device numerical drift remains to
+be measured by the updated preflight.
 
 The [LLM notebook](../colabs/SynLess_LLM_A100.ipynb) invokes the separate
 real-runtime preflight before permitting substantive training. See

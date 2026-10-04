@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+from copy import deepcopy
 
 import pytest
 import torch
@@ -264,3 +265,49 @@ def test_bf16_base_fp32_adapters_meta_connectivity(config):
     gradients = torch.autograd.grad(loss,tuple(generator.parameters()))
     assert all(torch.isfinite(g).all() for g in gradients)
     assert sum(float(g.norm()) for g in gradients)>0
+
+
+@pytest.mark.parametrize("bf16", [False, True])
+def test_same_shape_causality_and_future_leak_detection(config, monkeypatch, bf16):
+    from synless.llm.model import check_prompt_causality
+    learner, _, parts = tiny_setup(config)
+    if bf16:
+        for p in learner.parameters():
+            if not p.requires_grad:
+                p.data = p.data.to(torch.bfloat16)
+    rows = parts["A"][:2]
+    diagnostics = check_prompt_causality(learner, rows, ByteTokenizer())
+    assert all(v["max_abs_difference"] == 0 for v in diagnostics.values())
+    forward = learner.forward
+    def leaking_forward(batch, need_loss=True):
+        result = forward(batch, need_loss)
+        # Deliberately make the prompt depend on the first future token.
+        future = batch["input_ids"][torch.arange(len(batch["input_ids"])), batch["prompt_end"]+1]
+        result["q"] = result["q"] + future[:,None].float()
+        return result
+    monkeypatch.setattr(learner, "forward", leaking_forward)
+    with pytest.raises(RuntimeError, match="depends on future answer tokens"):
+        check_prompt_causality(learner, rows, ByteTokenizer())
+
+
+def test_cross_batch_prompt_drift_is_diagnostic_and_bad_prefix_fails(config, monkeypatch):
+    from synless.llm.model import objective
+    learner, _, parts = tiny_setup(config)
+    rows = parts["A"][:2]
+    original_loss, _ = objective(learner, rows, ByteTokenizer(), config, "uniform_barycenter")
+    forward = learner.forward
+    def rounded_wrong_query(batch, need_loss=True):
+        result = forward(batch, need_loss)
+        if not need_loss:
+            # Simulate cross-layout rounding in the unused duplicate query.
+            result["q"] = result["q"] + .01
+        return result
+    monkeypatch.setattr(learner, "forward", rounded_wrong_query)
+    loss, metrics = objective(learner, rows, ByteTokenizer(), config, "uniform_barycenter")
+    torch.testing.assert_close(loss, original_loss, rtol=0, atol=0)
+    assert metrics["cross_batch_prompt_max_abs"] > .009
+    assert metrics["cross_batch_prompt_max_relative_l2"] > 0
+    corrupted = deepcopy(rows)
+    corrupted[0]["negatives"][0]["input_ids"][0] += 1
+    with pytest.raises(ValueError, match="identical prompt tokens"):
+        objective(learner, corrupted, ByteTokenizer(), config, "uniform_barycenter")
