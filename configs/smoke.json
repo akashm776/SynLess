@@ -1,0 +1,22 @@
+{
+  "backend": "toy",
+  "data_seed": 20261003,
+  "seeds": [1, 2, 3],
+  "checkpoints": [2, 5],
+  "batch_size": 8,
+  "candidate_batches": 2,
+  "top_k": 3,
+  "epsilon": 0.049,
+  "iterations": 30,
+  "selected_per_batch": 3,
+  "continuation_steps": 4,
+  "random_repeats": 2,
+  "alpha": 0.06,
+  "projection_lr": 0.001,
+  "encoder_lr": 0.001,
+  "scale_lr": 0.001,
+  "weight_decay": 0.01,
+  "max_grad_norm": 1.0,
+  "device": "cpu",
+  "require_a100": false
+}

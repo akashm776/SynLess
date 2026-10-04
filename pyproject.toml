@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "synless"
+version = "0.1.0"
+description = "LESS-style selection of contextual synthetic contrastive negatives"
+requires-python = ">=3.10"
+dependencies = ["torch>=2.5", "numpy>=1.26"]
+
+[project.optional-dependencies]
+clip = ["transformers==4.57.3", "datasets==2.21.0", "Pillow>=10", "torchvision>=0.20"]
+test = ["pytest>=8"]
+
+[project.scripts]
+synless = "synless.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["synless*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
