@@ -1,5 +1,10 @@
 # Learned layer-wise negative generators: experiment protocol v0.2
 
+> Historical protocol snapshot. Active LLM implementation, this protocol, and
+> completed results now live in [SYNAPSE](https://github.com/akashm776/SYNAPSE).
+> The Qwen pilot completed and its Llama gate failed; pending-status wording
+> below records the pre-run stage. Scientific specifications are retained unchanged.
+
 Status: a separate LLM runner implements the Qwen pilot and all seven arms;
 offline tiny-model correctness and resume tests are available. Real Qwen/GSM8K
 training, GPU-memory validation, and utility results remain pending the A100 run.

@@ -1,5 +1,11 @@
 # Run the learned-generator pilot
 
+> Historical snapshot: active LLM work and completed Qwen results moved to
+> [SYNAPSE](https://github.com/akashm776/SYNAPSE). Follow its
+> [migration guide](https://github.com/akashm776/SYNAPSE/blob/main/docs/MIGRATION.md)
+> for original-run resume. Pending-status statements below describe the original
+> implementation stage, not current results. Do not use this page to start new work.
+
 [Overview](../README.md) · [Scientific protocol](LLM_GENERATOR_PROTOCOL.md)
 
 ## Status and scope

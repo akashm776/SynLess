@@ -1,5 +1,10 @@
 # Research roadmap
 
+> Historical roadmap. LLM stages 0/1 are complete; the Llama gate failed.
+> Current LLM work and decisions live in the
+> [SYNAPSE roadmap](https://github.com/akashm776/SYNAPSE/blob/main/docs/ROADMAP.md).
+> SynLess remains the CLIP/CUB project. Unchecked LLM items below are historical.
+
 [Project overview](../README.md) · [LLM protocol](LLM_GENERATOR_PROTOCOL.md)
 
 This roadmap separates completed work from proposed experiments. Unchecked items

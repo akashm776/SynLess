@@ -1,5 +1,9 @@
 # Implementation validation
 
+> LLM validation/results now live in [SYNAPSE](https://github.com/akashm776/SYNAPSE).
+> This page retains historical implementation notes, including pre-A100 wording.
+> The real Qwen pilot has since completed without establishing an overall gain.
+
 Validated locally on CPU with Python 3.12, PyTorch 2.9.1, NumPy 2.3.5,
 Transformers 4.57.3 and Torchvision 0.24.1. The subsequent three-seed Colab A100
 CLIP/CUB run is complete; see [pilot results](CLIP_PILOT_RESULTS.md) and the
